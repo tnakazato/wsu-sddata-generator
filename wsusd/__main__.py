@@ -1,6 +1,5 @@
 import argparse
 import functools
-import logging
 import numpy as np
 import os
 import scipy
@@ -10,14 +9,15 @@ from casatasks import importasdm
 from casatasks.private import sdutil
 from casatools import msmetadata
 
+from asdm2ms import is_asdm, run_importasdm
+from _logging import get_logger, set_debug_level
 from version import VERSION
 
 DESCRIPTION = '''
 From the input data, generates single dish artificial data that emulates
 ALMA-WSU observation.'''
 
-logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -75,26 +75,18 @@ def parse_args():
     return args
 
 
-def run_importasdm(asdm, chan_factor):
+def generate_ms_name(asdm, chan_factor, spw_factor):
     logger.debug('%s, %s' % (asdm, type(asdm)))
     asdm_basename = os.path.basename(asdm.rstrip('/'))
-    basename = f'{asdm_basename}.{chan_factor}xchan'
+    basename = asdm_basename
+
+    if chan_factor > 1:
+        basename += f'.{chan_factor}xchan'
+
+    if spw_factor > 1:
+        basename += f'.{spw_factor}xspw'
+
     vis = f'{basename}.ms'
-    logger.info(f'Generating MS {vis}')
-    try:
-        importasdm(
-            asdm=asdm, vis=vis,
-            createmms=False, ocorr_mode='ao', lazy=False,
-            asis='SBSummary ExecBlock Annotation Antenna Station Receiver Source CalAtmosphere CalWVR SpectralWindow',
-            process_caldevice=False, savecmds=True,
-            outfile=f'{basename}.flagonline.txt', overwrite=False,
-            bdfflags=True, with_pointing_correction=True
-        )
-    except Exception as e:
-        if 'You have specified an existing MS' in str(e):
-            pass
-        else:
-            raise e
 
     return vis
 
@@ -647,18 +639,6 @@ class WSUDataGenerator:
         main_updater.update()
         main_updater.flush()
 
-def is_asdm(asdm):
-    if os.path.isdir(asdm):
-        asdm_xml = os.path.join(asdm, 'ASDM.xml')
-        asdm_binary_dir = os.path.join(asdm, 'ASDMBinary')
-        _is_asdm = os.path.exists(asdm_xml) and \
-            os.path.exists(asdm_binary_dir) and \
-            os.path.isdir(asdm_binary_dir)
-    else:
-        _is_asdm = False
-
-    return _is_asdm
-
 
 def generate(asdm, chan_factor, spw_factor, backup_ms=False, dry_run=False):
     # run importasdm
@@ -678,7 +658,8 @@ def generate(asdm, chan_factor, spw_factor, backup_ms=False, dry_run=False):
 
     if is_asdm(asdm):
         logger.info('Running importasdm task to generate MS')
-        vis = run_importasdm(asdm, chan_factor)
+        vis = generate_ms_name(asdm, chan_factor, spw_factor)
+        run_importasdm(asdm, vis)
         logger.info(f'Created {vis}')
     else:
         # assuming input data is MS
@@ -696,6 +677,7 @@ def generate(asdm, chan_factor, spw_factor, backup_ms=False, dry_run=False):
 
     logger.info(f'Completed: Name of the output MS is {vis}')
 
+
 def main():
     # parse user inputs
     args = parse_args()
@@ -704,7 +686,7 @@ def main():
         print(args)
 
     if args.debug:
-        logger.setLevel(logging.DEBUG)
+        set_debug_level(logger)
 
     logger.debug(args)
 
