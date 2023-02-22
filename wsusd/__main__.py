@@ -35,25 +35,40 @@ def parse_args():
         action='store_true',
     )
     parser.add_argument(
+        '--dry-run',
+        help='Dry-run mode. Just print input parameters and exit.',
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
         '--backup-ms', '-b',
         help='Back up MS before manipulating.',
         default=False,
         action='store_true'
     )
     parser.add_argument(
+        '--chan-factor', '-c',
+        help='Channel expansion factor. '
+             'For example, setting this to 10 will produce the data with 10 times '
+             'more channels than input data. Default is 1 (no channel expansion).',
+        type=int,
+        action='store',
+        default=1
+    )
+    parser.add_argument(
+        '--spw-factor', '-s',
+        help='Spectral Window (spw) expansion factor. '
+             'For example, setting this to 2 will duplicate data for science '
+             'spws twice. Default is 1 (no spw expansion).',
+        type=int,
+        action='store',
+        default=1
+    )
+    parser.add_argument(
         'asdm_name',
         help='Path to the ASDM on disk.',
         type=str,
         nargs=1,
-    )
-    parser.add_argument(
-        'chan_factor',
-        help='Channel expantion factor. '
-             'For example, setting this to 10 will produce the data with 10 times '
-             'more channels than input data. Default is 10.',
-        type=int,
-        nargs='?',
-        default=10
     )
     args = parser.parse_args()
 
@@ -645,12 +660,16 @@ def is_asdm(asdm):
     return _is_asdm
 
 
-def generate(asdm, chan_factor, backup_ms=False):
+def generate(asdm, chan_factor, spw_factor, backup_ms=False, dry_run=False):
     # run importasdm
     logger.info('Input Parameter:')
-    logger.info(f'  asdm = {asdm}')
+    logger.info(f'  asdm = "{asdm}"')
     logger.info(f'  chan_factor = {chan_factor}')
+    logger.info(f'  spw_factor = {spw_factor}')
     logger.info(f'  backup_ms = {backup_ms}')
+
+    if dry_run:
+        return
 
     if not chan_factor > 0:
         msg = f'Invalid chan_factor was given ({chan_factor}). Must be > 0.'
@@ -681,6 +700,9 @@ def main():
     # parse user inputs
     args = parse_args()
 
+    if args.dry_run:
+        print(args)
+
     if args.debug:
         logger.setLevel(logging.DEBUG)
 
@@ -688,10 +710,12 @@ def main():
 
     asdm = args.asdm_name[0]
     chan_factor = args.chan_factor
+    spw_factor = args.spw_factor
     backup_ms = args.backup_ms
+    dry_run = args.dry_run
 
     # expand nchan
-    generate(asdm, chan_factor, backup_ms)
+    generate(asdm, chan_factor, spw_factor, backup_ms, dry_run)
 
 
 if __name__ == '__main__':
