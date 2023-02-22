@@ -3,7 +3,7 @@ import os
 from casatasks.private import sdutil
 
 from _logging import get_logger
-from generator.util import get_target_spws
+from generator.util import get_spw_dd_map, get_target_spws
 
 logger = get_logger(__name__)
 
@@ -14,8 +14,10 @@ class WSUSpwExpander:
         self.spw_factor = spw_factor
 
         self.science_spws, self.atm_spws = get_target_spws(self.vis)
-        self.target_spws = sorted(self.science_spws + self.atm_spws)
+        self.target_spws = sorted(set(self.science_spws + self.atm_spws))
         logger.info(f'target spws: {self.target_spws}')
+
+        self.spw_dd_map = get_spw_dd_map(self.vis)
 
     def expand(self):
         num_duplication = self.spw_factor - 1
@@ -25,13 +27,26 @@ class WSUSpwExpander:
 
     def _expand_spectral_window(self):
         table_name = os.path.join(self.vis, 'SPECTRAL_WINDOW')
+        self.extra_spw = []
         with sdutil.table_manager(table_name, nomodify=False) as tb:
-            for spw in self.target_spws:
-                logger.info(f'duplicating spw {spw}: spw {tb.nrows()} will be added')
-                tb.copyrows(table_name, spw, nrow=1)
+            for base_spw in self.target_spws:
+                new_spw = tb.nrows()
+                logger.info(f'duplicating spw {base_spw}: spw {new_spw} will be added')
+                tb.copyrows(table_name, base_spw, nrow=1)
+                self.extra_spw.append(new_spw)
 
     def _expand_data_description(self):
-        pass
+        table_name = os.path.join(self.vis, 'DATA_DESCRIPTION')
+        self.extra_dd = []
+        with sdutil.table_manager(table_name, nomodify=False) as tb:
+            for base_spw, new_spw in zip(self.target_spws, self.extra_spw):
+                base_dd = self.spw_dd_map[base_spw]
+                new_dd = tb.nrows()
+                logger.info(f'duplicating dd {base_dd} (spw {base_spw}): '
+                            f'dd {new_dd} (spw {new_spw}) will be added')
+                tb.copyrows(table_name, base_dd, nrow=1)
+                tb.putcell('SPECTRAL_WINDOW_ID', new_dd, new_spw)
+                self.extra_dd.append(new_dd)
 
     def _expand_syscal(self):
         pass
