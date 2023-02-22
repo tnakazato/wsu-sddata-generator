@@ -5,9 +5,9 @@ import scipy
 import shutil
 
 from casatasks.private import sdutil
-from casatools import msmetadata
 
 from _logging import get_logger
+from generator.util import get_spw_dd_map, get_target_spws
 
 logger = get_logger(__name__)
 
@@ -427,15 +427,12 @@ class MainUpdater(TableUpdater):
         table_name = vis
         super().__init__(vis, target_spws, table_name, freq_in=freq_in, freq_out=freq_out)
 
-        msmd = msmetadata()
-        msmd.open(self.vis)
         self.ddid = {}
-        for spw in range(msmd.nspw()):
-            ddids = msmd.datadescids(spw)
+        spw_ddid_map = get_spw_dd_map(self.vis)
+        for spw, ddids in spw_ddid_map.items():
             if len(ddids) > 0:
                 self.ddid[spw] = ddids[0]
         self.all_spws = sorted(self.ddid.keys())
-        msmd.close()
 
         self.tmp_vis = f'genwsusd.{vis}.tmp'
         self.backup_vis = f'genwsusd.{vis}.bak'
@@ -521,15 +518,7 @@ class WSUChannelExpander:
         self.vis = vis
         self.chan_factor = chan_factor
 
-        # get science spws/ddids
-        msmd = msmetadata()
-
-        # pick up full resolution science spws
-        msmd.open(vis)
-        self.science_spws = [int(s) for s in msmd.spwsforintent('OBSERVE_TARGET#ON_SOURCE') if msmd.nchan(s) > 4]
-        self.atm_spws = [int(s) for s in msmd.spwsforintent('CALIBRATE_ATMOSPHERE*') if msmd.nchan(s) > 4]
-        msmd.close()
-
+        self.science_spws, self.atm_spws = get_target_spws(self.vis)
         self.target_spws = self.science_spws + self.atm_spws
 
     def expand(self):
