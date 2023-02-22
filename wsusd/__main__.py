@@ -5,6 +5,7 @@ import shutil
 from _logging import get_logger, set_debug_level
 from asdm2ms import is_asdm, run_importasdm
 from generator.channel import WSUChannelExpander
+from generator.spw import WSUSpwExpander
 from version import VERSION
 
 DESCRIPTION = '''
@@ -116,8 +117,13 @@ def generate(asdm, chan_factor, spw_factor, backup_ms=False, dry_run=False):
         shutil.copytree(vis, vis_bak)
 
     if chan_factor > 1:
-        logger.info('Updating data structure')
+        logger.info('Updating channel structure')
         generator = WSUChannelExpander(vis, chan_factor)
+        generator.expand()
+
+    if spw_factor > 1:
+        logger.info('Updating spw structure')
+        generator = WSUSpwExpander(vis, spw_factor)
         generator.expand()
 
     logger.info(f'Completed: Name of the output MS is {vis}')
