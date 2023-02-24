@@ -26,17 +26,45 @@ class WSUSpwExpander:
         logger.info(f'duplicate {num_duplication} times')
         for i in range(num_duplication):
             logger.info(f'start duplication cycle {i}')
+            self.cycle_id = i
             self._duplicate()
             logger.info(f'done duplication cycle {i}')
+
+    def __generate_spw_name(self, base_name, extra_digit):
+        separator = '#'
+        elements = base_name.split(separator)
+        # append extra digit to the first element
+        elements[0] += f'{extra_digit:0>2d}'
+        return separator.join(elements)
+
+    def __find_dst_spw_id(self, tb):
+        taql = 'NAME == pattern("WVR#Antenna*")'
+        tsel = tb.query(taql)
+        rows = tsel.rownumbers()
+        tsel.close()
+
+        if len(rows) == 0:
+            return -1
+        else:
+            return rows[0]
 
     def _expand_spectral_window(self):
         table_name = os.path.join(self.vis, 'SPECTRAL_WINDOW')
         self.extra_spw = []
         with sdutil.table_manager(table_name, nomodify=False) as tb:
             for base_spw in self.target_spws:
-                new_spw = tb.nrows()
+                startrow = self.__find_dst_spw_id(tb)
+                if startrow < 0:
+                    new_spw = int(tb.nrows())
+                else:
+                    new_spw = int(startrow)
                 logger.info(f'duplicating spw {base_spw}: spw {new_spw} will be added')
-                tb.copyrows(table_name, base_spw, nrow=1)
+                tb.copyrows(table_name, base_spw, startrowout=startrow, nrow=1)
+                base_spw_name = tb.getcell('NAME', base_spw)
+                new_spw_name = self.__generate_spw_name(base_spw_name, self.cycle_id)
+                logger.info(f'base spw name: "{base_spw_name}"')
+                logger.info(f' new spw_name: "{new_spw_name}"')
+                tb.putcell('NAME', new_spw, new_spw_name)
                 self.extra_spw.append(new_spw)
 
     def __copy_selected_rows(self, tb, taql):
@@ -51,6 +79,15 @@ class WSUSpwExpander:
         finally:
             selected.close()
 
+    def __remove_preexisting_rows(self, tb, spw_id):
+        taql = f'SPECTRAL_WINDOW_ID == {spw_id}'
+        tsel = tb.query(taql)
+        rows = tsel.rownumbers()
+        tsel.close()
+
+        if len(rows) > 0:
+            tb.removerows(rows)
+
     def __expand_subtable(self, subtable_name):
         full_table_name = os.path.join(self.vis, subtable_name)
         with sdutil.table_manager(full_table_name, nomodify=False) as tb:
@@ -59,6 +96,8 @@ class WSUSpwExpander:
             for base_spw, new_spw in zip(self.target_spws, self.extra_spw):
                 logger.info(f'duplicating {subtable_name} rows for spw {base_spw}: '
                             f'spw {new_spw} will be assigned')
+
+                self.__remove_preexisting_rows(tb, new_spw)
 
                 startrow = tb.nrows()
                 taql = f'SPECTRAL_WINDOW_ID == {base_spw}'
