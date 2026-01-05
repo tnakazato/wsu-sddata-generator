@@ -2,7 +2,7 @@ import os
 
 from casatasks import importasdm
 
-from _logging import get_logger
+from wsusd._logging import get_logger
 
 logger = get_logger(__name__)
 
