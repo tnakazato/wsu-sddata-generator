@@ -6,8 +6,8 @@ import shutil
 
 from casatasks.private import sdutil
 
-from _logging import get_logger
-from generator.util import get_spw_dd_map, get_target_spws
+from wsusd._logging import get_logger
+from wsusd.generator.util import get_spw_dd_map, get_target_spws
 
 logger = get_logger(__name__)
 

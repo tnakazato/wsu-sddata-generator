@@ -2,11 +2,11 @@ import argparse
 import os
 import shutil
 
-from _logging import get_logger, set_debug_level
-from asdm2ms import is_asdm, run_importasdm
-from generator.channel import WSUChannelExpander
-from generator.spw import WSUSpwExpander
-from version import VERSION
+from wsusd._logging import get_logger, set_debug_level
+from wsusd.asdm2ms import is_asdm, run_importasdm
+from wsusd.generator.channel import WSUChannelExpander
+from wsusd.generator.spw import WSUSpwExpander
+from wsusd.version import VERSION
 
 DESCRIPTION = '''
 From the input data, generates single dish artificial data that emulates

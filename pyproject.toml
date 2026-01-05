@@ -1,0 +1,51 @@
+# pyproject.toml for wsu-sddata-generator
+# Please update authors, license and project urls as needed.
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wsu-sddata-generator"
+version = "1.0.0"
+description = "Data Generator for ALMA-WSU SD."
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [ { name = "Unknown" } ]
+license = { text = "UNKNOWN" }
+
+dependencies = [
+    "numpy",
+    "scipy",
+    "casatools",
+    "casatasks",
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: OS Independent",
+]
+
+[project.scripts]
+wsusd = "wsusd.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["wsusd*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-q"
+python_files = ["test_*.py"]
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203"]
