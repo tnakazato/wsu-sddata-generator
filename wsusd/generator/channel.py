@@ -53,7 +53,11 @@ def interpolate_data_single(data, cf_in, cf_out, sigma=2):
     smoothed = np.convolve(data, gauss, mode='same')
 
     _interpolator = scipy.interpolate.interp1d(
-        cf_in, smoothed, bounds_error=False, fill_value=(smoothed[0], smoothed[-1]))
+        cf_in,
+        smoothed,
+        bounds_error=False,
+        fill_value=(smoothed[0], smoothed[-1])
+    )
     interpolated = _interpolator(cf_out)
 
     diff = data - smoothed
@@ -62,9 +66,15 @@ def interpolate_data_single(data, cf_in, cf_out, sigma=2):
     corrupted = add_noise(interpolated, noise_std)
 
     noise_in = data - smoothed
-    logger.debug(f'noise(in) {noise_in[:5]} mean {noise_in.mean()} std {noise_in.std()} med {np.median(noise_in)}')
+    logger.debug(
+        f'noise(in) {noise_in[:5]} mean {noise_in.mean()} '
+        f'std {noise_in.std()} med {np.median(noise_in)}'
+    )
     noise = corrupted - interpolated
-    logger.debug(f'noise(out) {noise[:5]} mean {noise.mean()} std {noise.std()} med {np.median(noise)}')
+    logger.debug(
+        f'noise(out) {noise[:5]} mean {noise.mean()} '
+        f'std {noise.std()} med {np.median(noise)}'
+    )
 
     return corrupted
 
@@ -87,7 +97,9 @@ def interpolate_data(data_in, cf_in, cf_out, sigma=2):
     for ipol in range(npol):
         for irow in range(nrow):
             _data_in = data_in[ipol, :, irow]
-            data_out[ipol, :, irow] = interpolate_data_single(_data_in, cf_in, cf_out, sigma)
+            data_out[ipol, :, irow] = interpolate_data_single(
+                _data_in, cf_in, cf_out, sigma
+            )
 
     return data_out
 
@@ -107,7 +119,13 @@ def interpolate_bool(data_in, cf_in, cf_out):
     for ipol in range(npol):
         for irow in range(nrow):
             _data_in = data_in[ipol, :, irow]
-            obj = scipy.interpolate.interp1d(cf_in, _data_in, kind='nearest', bounds_error=False, fill_value=(_data_in[0], _data_in[-1]))
+            obj = scipy.interpolate.interp1d(
+                cf_in,
+                _data_in,
+                kind='nearest',
+                bounds_error=False,
+                fill_value=(_data_in[0], _data_in[-1])
+            )
             data_out[ipol, :, irow] = np.array(obj(cf_out), dtype=bool)
 
     return data_out
@@ -118,10 +136,10 @@ class TableUpdater:
     def columns(self):
         return []
 
-    def taql(self, spw: int):
+    def taql(self, spw: int) -> str:
         return ''
 
-    def __init__(self, vis: str, target_spws: int, table_name, **kwargs):
+    def __init__(self, vis: str, target_spws: list[int], table_name, **kwargs):
         self.vis = vis
         self.target_spws = [int(spw) for spw in target_spws]
         self.table_name = table_name
@@ -129,21 +147,24 @@ class TableUpdater:
             if attr in kwargs:
                 setattr(self, attr, kwargs[attr])
 
-        self.data_in = None
-        self.data_out = None
+        self.data_in: dict = {}
+        self.data_out: dict = {}
 
     def read(self):
         self.data_in = {}
         for spw in self.target_spws:
             taql = self.taql(spw)
             assert len(taql) > 0
-            with sdutil.table_selector(self.table_name, taql, nomodify=True) as tb:
+            with sdutil.table_selector(
+                self.table_name, taql, nomodify=True
+            ) as tb:
                 if tb.nrows() == 0:
                     continue
 
                 existing_columns = tb.colnames()
                 _data_in = dict(
-                    (col, tb.getcol(col)) for col in self.columns if col in existing_columns and tb.iscelldefined(col, 0)
+                    (col, tb.getcol(col)) for col in self.columns
+                    if col in existing_columns and tb.iscelldefined(col, 0)
                 )
 
             self.data_in[spw] = _data_in
@@ -158,7 +179,9 @@ class TableUpdater:
         for spw in self.target_spws:
             taql = self.taql(spw)
             assert len(taql) > 0
-            with sdutil.table_selector(self.table_name, taql, nomodify=False) as tb:
+            with sdutil.table_selector(
+                self.table_name, taql, nomodify=False
+            ) as tb:
                 _data_out = self.data_out[spw]
                 for col, val in _data_out.items():
                     tb.putcol(col, val)
@@ -167,31 +190,44 @@ class TableUpdater:
 class SpectralWindowUpdater(TableUpdater):
     @property
     def columns(self):
-        return ['CHAN_FREQ', 'CHAN_WIDTH', 'NUM_CHAN', 'EFFECTIVE_BW', 'RESOLUTION']
+        return [
+            'CHAN_FREQ', 'CHAN_WIDTH', 'NUM_CHAN',
+            'EFFECTIVE_BW', 'RESOLUTION'
+        ]
 
-    def taql(self, spw):
-        # inside TaQL, ROWNUMBER returns 1-based row number while spw is 0-based
+    def taql(self, spw: int) -> str:
+        # inside TaQL, ROWNUMBER returns 1-based
+        # row number while spw is 0-based
         return f'ROWNUMBER() == {spw + 1}'
 
-    def __init__(self, vis: str, target_spws: list, chan_factor: float):
+    def __init__(self, vis: str, target_spws: list[int], chan_factor: float):
         table_name = os.path.join(vis, 'SPECTRAL_WINDOW')
-        super().__init__(vis, target_spws, table_name, chan_factor=chan_factor)
+        super().__init__(vis, target_spws, table_name)
+        self.chan_factor = chan_factor
 
     def get_chan_freq_in(self):
         if isinstance(self.data_in, dict):
-            return dict((spw, data['CHAN_FREQ'][:, 0]) for spw, data in self.data_in.items())
+            return dict(
+                (spw, data['CHAN_FREQ'][:, 0]) for spw, data
+                in self.data_in.items()
+            )
         else:
-            return None
+            raise ValueError('data_in is not initialized properly.')
 
     def get_chan_freq_out(self):
         if isinstance(self.data_out, dict):
-            return dict((spw, data['CHAN_FREQ'][:, 0]) for spw, data in self.data_out.items())
+            return dict(
+                (spw, data['CHAN_FREQ'][:, 0]) for spw, data
+                in self.data_out.items()
+            )
         else:
-            return None
+            raise ValueError('data_out is not initialized properly.')
 
     def _update_num_chan(self, spw, nchan):
         nchan_new = nchan * self.chan_factor
-        logger.debug(f'spw {spw}: nchan(in) {nchan[0]}, nchan(out) {nchan_new[0]}')
+        logger.debug(
+            f'spw {spw}: nchan(in) {nchan[0]}, nchan(out) {nchan_new[0]}'
+        )
         return nchan_new
 
     def _update_chan_width(self, spw, chan_width):
@@ -202,8 +238,12 @@ class SpectralWindowUpdater(TableUpdater):
         end_chan = chan_freq[-1][0] + chan_width[-1][0] / 2
         bandwidth = end_chan - start_chan
 
-        cw_new = np.zeros(nchan_new, dtype=chan_width.dtype) + (bandwidth / nchan_new)
-        logger.debug(f'spw {spw}: chan_width(in) {chan_width[0][0]} chan_width(out) {cw_new[0]}')
+        cw_new = np.zeros(nchan_new, dtype=chan_width.dtype) \
+            + (bandwidth / nchan_new)
+        logger.debug(
+            f'spw {spw}: chan_width(in) {chan_width[0][0]} '
+            f'chan_width(out) {cw_new[0]}'
+        )
         return cw_new[:, np.newaxis]
 
     def _update_chan_freq(self, spw, chan_freq):
@@ -217,7 +257,9 @@ class SpectralWindowUpdater(TableUpdater):
         logger.debug(f'_start {_start} _end {_end} _step {_step}')
 
         cf_new = np.arange(_start, _end, _step, dtype=chan_freq.dtype)
-        logger.debug(f'spw {spw}: chan_freq(in) {chan_freq[0][0]} chan_freq(out) {cf_new[0]}')
+        logger.debug(
+            f'spw {spw}: chan_freq(in) {chan_freq[0][0]} '
+            f'chan_freq(out) {cf_new[0]}')
         return cf_new[:, np.newaxis]
 
     def _scale_by_chan_width(self, spw, data):
@@ -261,15 +303,21 @@ class SpectralWindowUpdater(TableUpdater):
 class SyscalUpdator(TableUpdater):
     @property
     def columns(self):
-        return ['TCAL_SPECTRUM', 'TRX_SPECTRUM', 'TSKY_SPECTRUM', 'TSYS_SPECTRUM',
-                'TANT_SPECTRUM', 'TANT_TSYS_SPECTRUM']
+        return [
+            'TCAL_SPECTRUM', 'TRX_SPECTRUM', 'TSKY_SPECTRUM',
+            'TSYS_SPECTRUM', 'TANT_SPECTRUM', 'TANT_TSYS_SPECTRUM'
+        ]
 
     def taql(self, spw):
         return f'SPECTRAL_WINDOW_ID == {spw}'
 
-    def __init__(self, vis: str, spw: int, freq_in: dict, freq_out: dict):
+    def __init__(
+            self, vis: str, spw: list[int], freq_in: dict, freq_out: dict
+    ):
         table_name = os.path.join(vis, 'SYSCAL')
-        super().__init__(vis, spw, table_name, freq_in=freq_in, freq_out=freq_out)
+        super().__init__(vis, spw, table_name)
+        self.freq_in = freq_in
+        self.freq_out = freq_out
 
     def update(self):
         self.data_out = dict((spw, {}) for spw in self.target_spws)
@@ -283,9 +331,14 @@ class SyscalUpdator(TableUpdater):
                 # _cw_in = abs(_freq_in[1] - _freq_in[0])
                 # _cw_out = abs(_freq_out[1] - _freq_out[0])
                 # scale_factor = np.sqrt(_cw_in / _cw_out)
-                # logger.info(f'spw {spw}: temperature scaling factor is {scale_factor}')
+                # logger.info(
+                #     f'spw {spw}: temperature scaling factor is '
+                #     f'{scale_factor}'
+                # )
                 scale_factor = 1.0
-                self.data_out[spw][col] = interpolate_data(arr, _freq_in, _freq_out) * scale_factor
+                self.data_out[spw][col] = interpolate_data(
+                    arr, _freq_in, _freq_out
+                ) * scale_factor
 
 
 def copy_table_structure(vis, outputvis):
@@ -346,10 +399,10 @@ class ChunkInterpolator:
     def __scale_data(self, data_in, factor):
         # shape of data_in should be (npol, nchan, nrow)
         assert len(data_in.shape) == 3
-        assert data_in.shape[1] == len(self.freq_in)
+        assert data_in.shape[1] == len(self.cf_in)
 
         npol, _, nrow = data_in.shape
-        nchan = len(self.freq_out)
+        nchan = len(self.cf_out)
         data_out = np.zeros((npol, nchan, nrow), dtype=data_in.dtype)
         data_out[:] = data_in[0, 0, 0] * factor
         return data_out
@@ -376,12 +429,16 @@ class ChunkInterpolator:
         # update data column (FLOAT_DATA/DATA)
         for column in ['FLOAT_DATA', 'DATA']:
             if column in data_in:
-                data_out[column] = interpolate_data(data_in[column], self.cf_in, self.cf_out)
+                data_out[column] = interpolate_data(
+                    data_in[column], self.cf_in, self.cf_out
+                )
                 break
 
         # update FLAG
         column = 'FLAG'
-        data_out[column] = interpolate_bool(data_in[column], self.cf_in, self.cf_out)
+        data_out[column] = interpolate_bool(
+            data_in[column], self.cf_in, self.cf_out
+        )
 
         # update WEIGHT_SPECTRUM
         column = 'WEIGHT_SPECTRUM'
@@ -423,9 +480,13 @@ class MainUpdater(TableUpdater):
     def taql(self, spw):
         return f'DATA_DESC_ID == {self.ddid[spw]}'
 
-    def __init__(self, vis: str, target_spws: list, freq_in: dict, freq_out: dict):
+    def __init__(
+            self, vis: str, target_spws: list, freq_in: dict, freq_out: dict
+    ):
         table_name = vis
-        super().__init__(vis, target_spws, table_name, freq_in=freq_in, freq_out=freq_out)
+        super().__init__(vis, target_spws, table_name)
+        self.freq_in = freq_in
+        self.freq_out = freq_out
 
         self.ddid = {}
         spw_ddid_map = get_spw_dd_map(self.vis)
@@ -454,7 +515,8 @@ class MainUpdater(TableUpdater):
                 logger.info(f'spw {spw}: start reading chunk {i}')
 
                 data_in = dict(
-                    (name, tb.getcol(name, chunk_start, nrow_chunk)) for name in self.columns
+                    (name, tb.getcol(name, chunk_start, nrow_chunk))
+                    for name in self.columns
                 )
 
                 yield chunk_start, nrow_chunk, data_in
@@ -481,7 +543,8 @@ class MainUpdater(TableUpdater):
 
     def update(self):
         self.update_generators = [
-            map(self._get_chunk_updater(spw), chunk) for spw, chunk in enumerate(self.read_generators)
+            map(self._get_chunk_updater(spw), chunk)
+            for spw, chunk in enumerate(self.read_generators)
         ]
 
     def flush(self):
@@ -489,7 +552,9 @@ class MainUpdater(TableUpdater):
         for spw, update_gen in enumerate(self.update_generators):
             logger.debug(f'spw {spw}: generator {update_gen}')
             taql = self.taql(spw)
-            with sdutil.table_selector(self.tmp_vis, taql, nomodify=False) as tb:
+            with sdutil.table_selector(
+                self.tmp_vis, taql, nomodify=False
+            ) as tb:
                 i = 0
                 for chunk_start, nrow_chunk, data_out in update_gen:
                     logger.info(f'spw {spw}: start writing chunk {i}')
@@ -506,7 +571,9 @@ class MainUpdater(TableUpdater):
         except Exception as e:
             if os.path.exists(self.tmp_vis):
                 shutil.rmtree(self.tmp_vis)
-            logger.error(f'Error during renaming. Resulting MS might be corrupted.')
+            logger.error(
+                'Error during renaming. Resulting MS might be corrupted.'
+            )
             raise e
         finally:
             if os.path.exists(self.backup_vis):
@@ -523,7 +590,9 @@ class WSUChannelExpander:
 
     def expand(self):
         # process SPECTRAL_WINDOW table
-        spw_updater = SpectralWindowUpdater(self.vis, self.target_spws, self.chan_factor)
+        spw_updater = SpectralWindowUpdater(
+            self.vis, self.target_spws, self.chan_factor
+        )
         spw_updater.read()
         spw_updater.update()
         spw_updater.flush()
