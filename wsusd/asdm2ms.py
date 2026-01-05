@@ -27,7 +27,8 @@ def run_importasdm(asdm, vis):
         importasdm(
             asdm=asdm, vis=vis,
             createmms=False, ocorr_mode='ao', lazy=False,
-            asis='SBSummary ExecBlock Annotation Antenna Station Receiver Source CalAtmosphere CalWVR SpectralWindow',
+            asis='SBSummary ExecBlock Annotation Antenna Station Receiver '
+                 'Source CalAtmosphere CalWVR SpectralWindow',
             process_caldevice=False, savecmds=True,
             outfile=f'{basename}.flagonline.txt', overwrite=False,
             bdfflags=True, with_pointing_correction=True
@@ -39,5 +40,3 @@ def run_importasdm(asdm, vis):
             raise e
 
     return vis
-
-

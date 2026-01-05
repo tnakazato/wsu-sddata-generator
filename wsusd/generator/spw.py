@@ -58,10 +58,14 @@ class WSUSpwExpander:
                     new_spw = int(tb.nrows())
                 else:
                     new_spw = int(startrow)
-                logger.info(f'duplicating spw {base_spw}: spw {new_spw} will be added')
+                logger.info(
+                    f'duplicating spw {base_spw}: spw {new_spw} will be added'
+                )
                 tb.copyrows(table_name, base_spw, startrowout=startrow, nrow=1)
                 base_spw_name = tb.getcell('NAME', base_spw)
-                new_spw_name = self.__generate_spw_name(base_spw_name, self.cycle_id)
+                new_spw_name = self.__generate_spw_name(
+                    base_spw_name, self.cycle_id
+                )
                 logger.info(f'base spw name: "{base_spw_name}"')
                 logger.info(f' new spw_name: "{new_spw_name}"')
                 tb.putcell('NAME', new_spw, new_spw_name)
@@ -94,7 +98,8 @@ class WSUSpwExpander:
             nrow_before = tb.nrows()
 
             for base_spw, new_spw in zip(self.target_spws, self.extra_spw):
-                logger.info(f'duplicating {subtable_name} rows for spw {base_spw}: '
+                logger.info(f'duplicating {subtable_name} rows for '
+                            f'spw {base_spw}: '
                             f'spw {new_spw} will be assigned')
 
                 self.__remove_preexisting_rows(tb, new_spw)
@@ -127,11 +132,13 @@ class WSUSpwExpander:
     def _expand_main(self):
         table_name = self.vis
         with sdutil.table_manager(table_name, nomodify=False) as tb:
-            for base_spw, new_spw, new_dd in zip(self.target_spws, self.extra_spw, self.extra_dd):
+            _iterator = zip(self.target_spws, self.extra_spw, self.extra_dd)
+            for base_spw, new_spw, new_dd in _iterator:
                 # here we assume spw-dd mapping is one-to-one
                 # (mapping is one-to-many in general)
                 base_dd = self.spw_dd_map[base_spw][0]
-                logger.info(f'duplicating MAIN rows for dd {base_dd} (spw {base_spw}): '
+                logger.info(f'duplicating MAIN rows for dd {base_dd} '
+                            f'(spw {base_spw}): '
                             f'dd {new_dd} (spw {new_spw}) will be assigned')
 
                 startrow = tb.nrows()

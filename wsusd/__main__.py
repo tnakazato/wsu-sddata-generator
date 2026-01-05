@@ -14,6 +14,7 @@ ALMA-WSU observation.'''
 
 logger = get_logger(__name__)
 
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description=DESCRIPTION
@@ -44,8 +45,9 @@ def parse_args():
     parser.add_argument(
         '--chan-factor', '-c',
         help='Channel expansion factor. '
-             'For example, setting this to 10 will produce the data with 10 times '
-             'more channels than input data. Default is 1 (no channel expansion).',
+             'For example, setting this to 10 will produce the data '
+             'with 10 times more channels than input data. '
+             'Default is 1 (no channel expansion).',
         type=int,
         action='store',
         default=1
@@ -113,7 +115,9 @@ def generate(asdm, chan_factor, spw_factor, backup_ms=False, dry_run=False):
 
     if backup_ms:
         vis_bak = f'{vis}.bak'
-        logger.info(f'Back up MS before manipulation. Back up file is {vis_bak}')
+        logger.info(
+            f'Back up MS before manipulation. Back up file is {vis_bak}'
+        )
         shutil.copytree(vis, vis_bak)
 
     if chan_factor > 1:
