@@ -2,6 +2,14 @@
 
 Data Generator for ALMA-WSU SD.
 
+## Installation
+
+```
+pip3 install [-e] .
+```
+
+## Usage
+
 ```
 usage: wsusd [-h] [--version] [--debug] [--dry-run] [--backup-ms]
              [--chan-factor CHAN_FACTOR] [--spw-factor SPW_FACTOR]
