@@ -48,7 +48,7 @@ def parse_args():
              'For example, setting this to 10 will produce the data '
              'with 10 times more channels than input data. '
              'Default is 1 (no channel expansion).',
-        type=int,
+        type=float,
         action='store',
         default=1
     )
@@ -96,15 +96,15 @@ def generate(asdm, chan_factor, spw_factor, backup_ms=False, dry_run=False):
     logger.info(f'  spw_factor = {spw_factor}')
     logger.info(f'  backup_ms = {backup_ms}')
 
-    if dry_run:
-        return
-
     if not chan_factor > 0:
         msg = f'Invalid chan_factor was given ({chan_factor}). Must be > 0.'
         logger.error(msg)
         raise ValueError(msg)
 
     if is_asdm(asdm):
+        if dry_run:
+            return
+
         logger.info('Running importasdm task to generate MS')
         vis = generate_ms_name(asdm, chan_factor, spw_factor)
         run_importasdm(asdm, vis)
@@ -123,14 +123,15 @@ def generate(asdm, chan_factor, spw_factor, backup_ms=False, dry_run=False):
     if chan_factor > 1:
         logger.info('Updating channel structure')
         generator = WSUChannelExpander(vis, chan_factor)
-        generator.expand()
+        generator.expand(dry_run=dry_run)
 
     if spw_factor > 1:
         logger.info('Updating spw structure')
         generator = WSUSpwExpander(vis, spw_factor)
-        generator.expand()
+        generator.expand(dry_run=dry_run)
 
-    logger.info(f'Completed: Name of the output MS is {vis}')
+    logger.info(f'Completed{" (dry run)" if dry_run else ""}: '
+                f'Name of the output MS is {vis}')
 
 
 def main():

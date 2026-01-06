@@ -21,9 +21,16 @@ class WSUSpwExpander:
 
         self.spw_dd_map = get_spw_dd_map(self.vis)
 
-    def expand(self):
+    def expand(self, dry_run: bool = False):
         num_duplication = self.spw_factor - 1
-        logger.info(f'duplicate {num_duplication} times')
+        logger.info(
+            f'number of output spws: {len(self.target_spws) * self.spw_factor}'
+        )
+        logger.info(f'duplicate spws {num_duplication} times')
+
+        if dry_run:
+            return
+
         for i in range(num_duplication):
             logger.info(f'start duplication cycle {i}')
             self.cycle_id = i

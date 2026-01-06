@@ -223,9 +223,9 @@ class SpectralWindowUpdater(TableUpdater):
         else:
             raise ValueError('data_out is not initialized properly.')
 
-    def _update_num_chan(self, spw, nchan):
-        nchan_new = nchan * self.chan_factor
-        logger.debug(
+    def _update_num_chan(self, spw: int, nchan: np.ndarray) -> np.ndarray:
+        nchan_new = np.rint(nchan * self.chan_factor).astype(int)
+        logger.info(
             f'spw {spw}: nchan(in) {nchan[0]}, nchan(out) {nchan_new[0]}'
         )
         return nchan_new
@@ -588,12 +588,19 @@ class WSUChannelExpander:
         self.science_spws, self.atm_spws = get_target_spws(self.vis)
         self.target_spws = self.science_spws + self.atm_spws
 
-    def expand(self):
+    def expand(self, dry_run: bool = False):
         # process SPECTRAL_WINDOW table
         spw_updater = SpectralWindowUpdater(
             self.vis, self.target_spws, self.chan_factor
         )
         spw_updater.read()
+
+        # dry run mode: just report updated NUM_CHAN values
+        if dry_run:
+            for spw, nchan in spw_updater.data_in.items():
+                _ = spw_updater._update_num_chan(spw, nchan['NUM_CHAN'])
+            return
+
         spw_updater.update()
         spw_updater.flush()
 
