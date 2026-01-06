@@ -588,12 +588,19 @@ class WSUChannelExpander:
         self.science_spws, self.atm_spws = get_target_spws(self.vis)
         self.target_spws = self.science_spws + self.atm_spws
 
-    def expand(self):
+    def expand(self, dry_run: bool = False):
         # process SPECTRAL_WINDOW table
         spw_updater = SpectralWindowUpdater(
             self.vis, self.target_spws, self.chan_factor
         )
         spw_updater.read()
+
+        # dry run mode: just report updated NUM_CHAN values
+        if dry_run:
+            for spw, nchan in spw_updater.data_in.items():
+                _ = spw_updater._update_num_chan(spw, nchan['NUM_CHAN'])
+            return
+
         spw_updater.update()
         spw_updater.flush()
 
