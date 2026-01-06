@@ -223,9 +223,9 @@ class SpectralWindowUpdater(TableUpdater):
         else:
             raise ValueError('data_out is not initialized properly.')
 
-    def _update_num_chan(self, spw, nchan):
-        nchan_new = nchan * self.chan_factor
-        logger.debug(
+    def _update_num_chan(self, spw: int, nchan: np.ndarray) -> np.ndarray:
+        nchan_new = np.rint(nchan * self.chan_factor).astype(int)
+        logger.info(
             f'spw {spw}: nchan(in) {nchan[0]}, nchan(out) {nchan_new[0]}'
         )
         return nchan_new

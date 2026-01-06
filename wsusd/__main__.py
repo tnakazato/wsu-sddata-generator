@@ -48,7 +48,7 @@ def parse_args():
              'For example, setting this to 10 will produce the data '
              'with 10 times more channels than input data. '
              'Default is 1 (no channel expansion).',
-        type=int,
+        type=float,
         action='store',
         default=1
     )
