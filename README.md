@@ -19,7 +19,7 @@ From the input data, generates single dish artificial data that emulates ALMA-
 WSU observation.
 
 positional arguments:
-  asdm_name             Path to the ASDM on disk.
+  asdm_name             Path to the ASDM or MS on disk.
 
 optional arguments:
   -h, --help            show this help message and exit

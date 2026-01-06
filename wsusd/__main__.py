@@ -63,7 +63,7 @@ def parse_args():
     )
     parser.add_argument(
         'asdm_name',
-        help='Path to the ASDM on disk.',
+        help='Path to the ASDM or MS on disk.',
         type=str,
         nargs=1,
     )
