@@ -1,13 +1,15 @@
 import functools
-import numpy as np
 import os
-import scipy
 import shutil
 
+import numpy as np
+import scipy
 from casatasks.private import sdutil
+from scipy.ndimage import convolve1d
 
 from wsusd._logging import get_logger
 from wsusd.generator.util import get_spw_dd_map, get_target_spws
+
 
 logger = get_logger(__name__)
 
@@ -33,75 +35,62 @@ def robust_stddev(data, clipthresh=3, clipniter=3):
     return stddev
 
 
-def add_noise(data, noise_stddev):
-    generator = np.random.default_rng()
-    noise = generator.normal(0, noise_stddev, len(data))
-    return data + noise
+def interpolate_data(data_in, cf_in, cf_out, sigma=2, robust=True):
+    """Interpolates data onto a new frequency grid with added noise.
 
+    Performs Gaussian smoothing, interpolation, and re-addition of noise based on
+    residuals from the smoothing process.
 
-def interpolate_data_single(data, cf_in, cf_out, sigma=2):
-    # data should be one dimensional
-    assert len(data.shape) == 1
+    Args:
+        data_in: Input data array with shape (npol, nchan, nrow)
+        cf_in: Input channel frequencies.
+        cf_out: Output channel frequencies.
+        sigma: Standard deviation for the Gaussian kernel.
+        robust: If True, use robust stddev estimation for noise addition (slower).
 
-    # nchan should be equal to len(cf_in)
-    assert len(data) == len(cf_in)
-
-    nchan = len(data)
-    n = min(nchan, sigma * 10)
-    gauss = gauss_normalized(n, sigma)
-
-    smoothed = np.convolve(data, gauss, mode='same')
-
-    _interpolator = scipy.interpolate.interp1d(
-        cf_in,
-        smoothed,
-        bounds_error=False,
-        fill_value=(smoothed[0], smoothed[-1])
-    )
-    interpolated = _interpolator(cf_out)
-
-    diff = data - smoothed
-    noise_std = robust_stddev(diff, clipthresh=3, clipniter=3)
-    logger.debug(f'native std {diff.std()} robust std {noise_std}')
-    corrupted = add_noise(interpolated, noise_std)
-
-    noise_in = data - smoothed
-    logger.debug(
-        f'noise(in) {noise_in[:5]} mean {noise_in.mean()} '
-        f'std {noise_in.std()} med {np.median(noise_in)}'
-    )
-    noise = corrupted - interpolated
-    logger.debug(
-        f'noise(out) {noise[:5]} mean {noise.mean()} '
-        f'std {noise.std()} med {np.median(noise)}'
-    )
-
-    return corrupted
-
-
-def interpolate_data(data_in, cf_in, cf_out, sigma=2):
-    # data.shape should be (npol, nchan, nrow)
+    Returns:
+        Interpolated data array with shape (npol, nchan_out, nrow).
+    """
+    # data.shape should be (npol, nchan, nrow) in F-order in memory per casatools output convention.
     assert len(data_in.shape) == 3
-
-    # channel frequencies should be one-dimensional array
     assert len(cf_in.shape) == 1
     assert len(cf_out.shape) == 1
 
-    npol, _, nrow = data_in.shape
-    nchan = len(cf_out)
+    npol, nchan_in, nrow = data_in.shape
+    nchan_out = len(cf_out)
 
-    logger.debug(f'cf_in.shape = {cf_in.shape}')
-    logger.debug(f'cf_out.shape = {cf_out.shape}')
-    logger.debug(f'data.shape = {data_in.shape}')
-    data_out = np.zeros((npol, nchan, nrow), dtype=data_in.dtype)
-    for ipol in range(npol):
-        for irow in range(nrow):
-            _data_in = data_in[ipol, :, irow]
-            data_out[ipol, :, irow] = interpolate_data_single(
-                _data_in, cf_in, cf_out, sigma
-            )
+    n = min(nchan_in, sigma * 10)
+    gauss = gauss_normalized(n, sigma)
 
-    return data_out
+    # Reshape for vectorized convolution: (npol * nrow, nchan)
+    data_flat = data_in.transpose(0, 2, 1).reshape(-1, nchan_in)
+
+    # Vectorized smoothing using scipy.ndimage
+    smoothed_flat = convolve1d(data_flat, gauss, axis=1, mode='constant', cval=0.0)
+
+    # Create interpolator for all rows
+    interpolator = scipy.interpolate.interp1d(
+        cf_in, smoothed_flat, axis=1, bounds_error=False, fill_value=(smoothed_flat[:, 0], smoothed_flat[:, -1])
+    )
+    interpolated_flat = interpolator(cf_out)
+
+    # Add noise vectorized
+    diff_flat = data_flat - smoothed_flat
+    if robust:
+        noise_std = np.apply_along_axis(robust_stddev, 1, diff_flat).reshape(-1, 1)
+        noise_std_native = np.std(diff_flat, axis=1, keepdims=True)
+        logger.debug(
+            'native std %s robust std %s (channel-wise noise - median over chunk)',
+            np.median(noise_std_native),
+            np.median(noise_std),
+        )
+    else:
+        noise_std = np.std(diff_flat, axis=1, keepdims=True)
+    noise = np.random.default_rng().normal(0, noise_std, interpolated_flat.shape)
+    corrupted_flat = interpolated_flat + noise
+
+    # Reshape back to (npol, nchan_out, nrow)
+    return corrupted_flat.reshape(npol, nrow, nchan_out).transpose(0, 2, 1)
 
 
 def interpolate_bool(data_in, cf_in, cf_out):
