@@ -5,7 +5,7 @@ import numpy as np
 from casatasks.private import sdutil
 
 from wsusd._logging import get_logger
-from wsusd.generator.util import get_spw_dd_map, get_target_spws
+from wsusd.generator.util import get_spw_dd_map, get_target_spws, copy_selected_main_rows
 
 logger = get_logger(__name__)
 
@@ -150,7 +150,7 @@ class WSUSpwExpander:
 
                 startrow = tb.nrows()
                 taql = f'DATA_DESC_ID == {base_dd}'
-                self.__copy_selected_rows(tb, taql)
+                copy_selected_main_rows(tb, taql)
                 nrow = tb.nrows() - startrow
                 ddcol = np.zeros(nrow, dtype=int) + new_dd
                 tb.putcol('DATA_DESC_ID', ddcol, startrow, nrow)

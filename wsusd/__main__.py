@@ -120,14 +120,14 @@ def generate(asdm, chan_factor, spw_factor, backup_ms=False, dry_run=False):
         )
         shutil.copytree(vis, vis_bak)
 
-    if chan_factor > 1:
-        logger.info('Updating channel structure')
-        generator = WSUChannelExpander(vis, chan_factor)
-        generator.expand(dry_run=dry_run)
-
     if spw_factor > 1:
         logger.info('Updating spw structure')
         generator = WSUSpwExpander(vis, spw_factor)
+        generator.expand(dry_run=dry_run)
+
+    if chan_factor > 1:
+        logger.info('Updating channel structure')
+        generator = WSUChannelExpander(vis, chan_factor)
         generator.expand(dry_run=dry_run)
 
     logger.info(f'Completed{" (dry run)" if dry_run else ""}: '
